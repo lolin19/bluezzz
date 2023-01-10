@@ -17,7 +17,7 @@ int main()
         exit(1);
     }
 
-    // Set up a scan
+   
     inquiry_info* scan_results = new inquiry_info[10];
     int scan_length = 10;
     int scan_duration = 8; // in 1.28 second intervals
