@@ -1,0 +1,69 @@
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <bluetooth/bluetooth.h>
+#include <bluetooth/hci.h>
+#include <bluetooth/hci_lib.h>
+
+int main()
+{
+   
+    int device = hci_open_dev(hci_get_route(NULL));
+    if (device < 0)
+    {
+        perror("Failed to open HCI device");
+        exit(1);
+    }
+
+    // Set up a scan
+    inquiry_info* scan_results = new inquiry_info[10];
+    int scan_length = 10;
+    int scan_duration = 8; // in 1.28 second intervals
+    int max_responses = 255;
+    int flags = IREQ_CACHE_FLUSH;
+    int num_responses = hci_inquiry(device, scan_duration, max_responses, NULL, &scan_results, flags);
+    if (num_responses < 0)
+    {
+        perror("Failed to start scan");
+        exit(1);
+    }
+
+    
+    for (int i = 0; i < num_responses; i++)
+    {
+        char address[19] = { 0 };
+        ba2str(&(scan_results + i)->bdaddr, address);
+        char name[248] = { 0 };
+        if (hci_read_remote_name(device, &(scan_results + i)->bdaddr, sizeof(name), name, 0) < 0)
+        {
+            strcpy(name, "[unknown]");
+        }
+
+        
+        uint8_t features[8];
+        if (hci_read_remote_features(device, &(scan_results + i)->bdaddr, features, 0) < 0)
+        {
+            perror("Failed to read remote features");
+        }
+        int cod = (scan_results + i)->class_of_device;
+        uint8_t major_class = (cod & 0x00001f00) >> 8;
+        uint8_t minor_class = (cod & 0x000000fc) >> 2;
+
+        // Print out the information
+        printf("%s %s\n", address, name);
+        printf("  Major class: %d\n", major_class);
+        printf("  Minor class: %d\n", minor_class);
+        printf("  Features:\n");
+        for (int j = 0; j < 8; j++)
+        {
+            printf("    %02x\n", features[j]);
+        }
+    }
+
+    // Clean up
+    delete[] scan_results;
+    hci_close_dev(device);
+    return 0;
+}
